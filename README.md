@@ -55,7 +55,7 @@ The interactive API documentation is available at **`/docs`** once the server is
 Below are screenshots of the Swagger UI demonstrating the available endpoints and CRUD operations.
 
 ### Screenshot 1
-![Swagger UI Screenshot 1](<Step 5 Swagger UI_pages-to-jpg-0001-1.jpg>)
+![Swagger UI Screenshot 1](<Step 5 Swagger UI_pages-to-jpg-0001.jpg>)
 
 ### Screenshot 2
 ![Swagger UI Screenshot 2](<Step 5 Swagger UI_pages-to-jpg-0002.jpg>)

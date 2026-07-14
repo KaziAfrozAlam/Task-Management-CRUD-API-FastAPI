@@ -12,28 +12,28 @@ tasks = [
 class CreateTask(BaseModel):
     title: str
 
-@app.get("/")
+@app.get("/", summary="Root endpoint")
 def root():
     return {"name": "Task API",
             "Version": "1.0",
             "endpoints": ["/tasks"]
     }
-@app.get("/health")
+@app.get("/health", summary="Health check")
 def health():
     return{"status": "ok"}
 
-@app.get("/tasks")
+@app.get("/tasks", summary="Get all tasks")
 def get_tasks():
     return tasks   
 
-@app.get("/tasks/{task_id}")
+@app.get("/tasks/{task_id}", summary="Get a single task by ID")
 def get_task(task_id: int):
     for task in tasks:
         if task["id"] == task_id:
             return task
     raise HTTPException(status_code=404, detail=f"Task {task_id} not found")
 
-@app.post("/tasks", status_code=201)
+@app.post("/tasks", status_code=201, summary="Create a new task")
 def create_task(task: CreateTask):
     if not task.title or not task.title.strip():
         raise HTTPException(status_code=400, detail="Title is required and cannot be empty")
@@ -47,7 +47,7 @@ class UpdatedTask(BaseModel):
     title: str | None = None
     done: bool | None = None
 
-@app.put("/tasks/{task_id}")
+@app.put("/tasks/{task_id}", summary="Update a task's title or done status")
 def update_task(task_id: int, update: UpdatedTask):
     for task in tasks:
         if task["id"] == task_id:
@@ -60,10 +60,11 @@ def update_task(task_id: int, update: UpdatedTask):
             return task
     raise HTTPException(status_code=404, detail=f"Task {task_id} not found")
 
-@app.delete("/tasks/{task_id}", status_code=204)
+@app.delete("/tasks/{task_id}", status_code=204, summary="Delete a task")
 def delete_task(task_id: int):
     for task in tasks:
         if task["id"] == task_id:
             tasks.remove(task)
             return
     raise HTTPException(status_code=404, detail=f"Task {task_id} not found")
+

@@ -1,0 +1,10 @@
+# Database file — created automatically on first run
+tasks.db
+
+# Python
+__pycache__/
+*.pyc
+venv/
+
+# VS Code
+.vscode/

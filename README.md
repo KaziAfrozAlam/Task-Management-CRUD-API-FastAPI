@@ -81,3 +81,36 @@ Below are screenshots of the Swagger UI demonstrating the available endpoints an
 ### Screenshot 9
 ![Swagger UI Screenshot 9](<Step 5 Swagger UI_pages-to-jpg-0009.jpg>)
 
+## Database
+
+This project now stores tasks in **SQLite** instead of an in-memory list.
+
+**Why SQLite:** it's a single file with zero setup — no server to install or configure — and it survives restarts, unlike the in-memory list used in Assignment 1.
+
+**Where it lives:** `tasks.db`, created automatically the first time the app runs. It's git-ignored, so each fresh clone starts with a clean database.
+
+**Run it:**
+```bash
+pip install fastapi uvicorn
+uvicorn main:app --reload
+```
+On first run, `tasks.db` is created automatically with the `tasks` table and 3 seeded example tasks.
+
+**Exploring the database by hand:**
+Since I worked in a browser-based Codespace, I used the SQLite CLI instead of DB Browser:
+```bash
+sqlite3 tasks.db
+```
+Example query run:
+```sql
+SELECT COUNT(*) FROM tasks;
+```
+This returned `3`, confirming the table held exactly the 3 seeded tasks before I explored `UPDATE`/`DELETE` behavior.
+
+![SQLite CLI screenshot](./sqlite-cli-screenshot.png)
+
+![SQLite CLI screenshot](./image.png)
+
+*Viewed using a browser-based SQLite viewer in Codespaces, showing the `tasks` table with 3 seeded rows.*
+
+![SQLite CLI screenshot](./sqlite-db-view.png)

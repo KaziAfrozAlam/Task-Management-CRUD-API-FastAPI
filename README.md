@@ -156,3 +156,11 @@ My project uses:- FastAPI (Python) with the built-in sqlite3 library.
 **What my prompt forgot to specify:**
 - Whether `done` should be returned as an int or a bool — the AI resolved this ambiguity on its own by picking bool everywhere, which actually fixed a real bug in my original code.
 - Connection-safety expectations (try/finally) — I didn't think to ask for this, but it's clearly better practice.
+
+## Running Postgres
+
+Start the database container:
+```bash
+docker run --name taskdb -e POSTGRES_PASSWORD=dev -e POSTGRES_DB=tasks \
+  -p 5432:5432 -v taskdata:/var/lib/postgresql/data -d postgres:16
+```

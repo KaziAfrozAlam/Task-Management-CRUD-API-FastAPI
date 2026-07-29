@@ -114,3 +114,45 @@ This returned `3`, confirming the table held exactly the 3 seeded tasks before I
 *Viewed using a browser-based SQLite viewer in Codespaces, showing the `tasks` table with 3 seeded rows.*
 
 ![SQLite CLI screenshot](./sqlite-db-view.png)
+
+## AI vs Me — Stage 6
+
+**My prompt:**
+I have a CRUD Task API that currently stores tasks in memory. I want you to migrate only the storage layer to SQLite while keeping the API behavior exactly the same. 
+
+My project uses:- FastAPI (Python) with the built-in sqlite3 library.
+
+ Requirements:
+ 1. Create a SQLite database named tasks.db automatically if it doesn't exist.
+ 2. Create a table named tasks if it doesn't already exist with these columns: 
+      - id INTEGER PRIMARY KEY AUTOINCREMENT
+      - title TEXT NOT NULL
+      - done INTEGER NOT NULL
+ 3. Seed exactly three example tasks only if the table is empty. Restarting the    application must never duplicate the seed data.
+ 4. Keep the existing API endpoints unchanged:
+   - GET /tasks
+   - GET /tasks/{id}
+   - POST /tasks
+   - PUT /tasks/{id}
+   - DELETE /tasks/{id}
+ 5. Preserve the same request and response formats and the same status codes:
+   - 200 for successful GET and PUT
+   - 201 for successful POST
+   - 204 for successful DELETE
+   - 400 for invalid or missing title
+   - 404 when a task ID does not exist
+  6. Use parameterized SQL queries for every database operation. Never concatenate user input into SQL strings.
+  7. The API should continue to behave exactly as before. Only replace the in-memory storage with SQLite.
+  8. The database should persist data between server restarts. Return the complete updated code with clear comments explaining the database changes.
+
+**What the AI did better:**
+1. Fixed a real inconsistency in my code — POST returned `done` as a proper boolean while GET returned it as a raw 0/1 integer from SQLite. The AI added a `row_to_task()` helper to normalize every response to a real boolean.
+2. Wrapped every database operation in `try/finally` so the connection always closes, even if a query raises an exception — my version could leak connections on error.
+3. Used `Path(__file__).with_name("tasks.db")` instead of a relative string path, so the database always resolves next to `main.py` regardless of the working directory the server is launched from.
+
+**What it got wrong or ignored:**
+- Nothing broke the required behavior — endpoints, status codes, and parameterized queries all matched my spec exactly.
+
+**What my prompt forgot to specify:**
+- Whether `done` should be returned as an int or a bool — the AI resolved this ambiguity on its own by picking bool everywhere, which actually fixed a real bug in my original code.
+- Connection-safety expectations (try/finally) — I didn't think to ask for this, but it's clearly better practice.

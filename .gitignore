@@ -1,5 +1,9 @@
+cat > .gitignore << 'EOF'
 # Database file — created automatically on first run
 tasks.db
+
+# Environment secrets
+.env
 
 # Python
 __pycache__/
@@ -7,4 +11,5 @@ __pycache__/
 venv/
 
 # VS Code
-.vscode/.env
+.vscode/
+EOF

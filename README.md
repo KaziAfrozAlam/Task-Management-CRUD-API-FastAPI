@@ -164,3 +164,43 @@ Start the database container:
 docker run --name taskdb -e POSTGRES_PASSWORD=dev -e POSTGRES_DB=tasks \
   -p 5432:5432 -v taskdata:/var/lib/postgresql/data -d postgres:16
 ```
+
+## Running the full stack (Docker + Postgres)
+
+This project now runs against a real PostgreSQL database, containerized with Docker, and the whole stack (app + database) starts with a single command.
+
+**Setup:**
+```bash
+cp .env.example .env
+docker compose up
+```
+
+**Environment variables** (see `.env.example`):
+- `DATABASE_URL` — Postgres connection string, e.g. `postgres://postgres:dev@db:5432/tasks`
+
+**Endpoints:**
+
+| Method | Path            | Description                     |
+|--------|-----------------|---------------------------------|
+| GET    | `/`             | API info                        |
+| GET    | `/health`       | Health check                    |
+| GET    | `/tasks`        | List all tasks                  |
+| GET    | `/tasks/{id}`   | Get a single task by ID         |
+| POST   | `/tasks`        | Create a new task               |
+| PUT    | `/tasks/{id}`   | Update a task's title/done      |
+| DELETE | `/tasks/{id}`   | Delete a task                   |
+
+**Example request:**
+```bash
+curl -i http://localhost:8000/tasks
+```
+HTTP/1.1 200 OK
+content-type: application/json
+
+[{"id":1,"title":"Learn FastAPI","done":false},{"id":2,"title":"Build CRUD API","done":false},{"id":3,"title":"Publish to GitHub","done":false}]
+
+**Persistence:** data survives a full stack restart (`docker compose down` then `docker compose up`), because Postgres's data lives in a named volume (`taskdata`) that outlives the containers.
+
+**Note on Postgres version:** this project pins `postgres:16` rather than the `latest` tag. Postgres 18+ images changed their data directory layout in a way that's incompatible with the simple volume mount used here — pinning to 16 avoids that issue while still being a fully current, supported version.
+
+![Database screenshot](./postgres-db-screenshot.png)

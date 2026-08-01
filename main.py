@@ -60,7 +60,16 @@ def root():
     }
 @app.get("/health", summary="Health check")
 def health():
-    return{"status": "ok"}
+    try:
+        conn = get_connection()
+        try:
+            with conn.cursor() as cursor:
+                cursor.execute("SELECT 1")
+        finally:
+            conn.close()
+        return {"status": "ok", "db": "ok"}
+    except Exception:
+        raise HTTPException(status_code=503, detail={"status": "error", "db": "unreachable"})
 
 @app.get("/tasks", summary="Get all tasks")
 def get_tasks():

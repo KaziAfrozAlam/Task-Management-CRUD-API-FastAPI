@@ -210,3 +210,106 @@ content-type: application/json
 **Real health check:** `/health` now runs `SELECT 1` against the database before responding. If the database is unreachable, it returns `503` instead of a false "ok" — a load balancer or orchestrator polling this endpoint uses it to decide whether to route traffic to this instance, pulling it out of rotation if the check fails.
 
 **The mortality experiment:** ran Postgres without a volume, created a table and inserted a row, then removed and recreated the container with identical settings. The data was completely gone — `SELECT * FROM demo` returned `relation "demo" does not exist`. This is exactly why `taskdata` is mounted as a volume in `compose.yaml`: without it, a container's data dies the moment the container itself is removed.
+
+# AI vs Me
+
+## Prompt Used
+
+```text
+You are an experienced Python backend developer.
+
+I have a FastAPI Task Management API that I want to containerize using Docker and PostgreSQL.
+
+Requirements:
+
+- Language: Python 3.12
+- Framework: FastAPI
+- Database: PostgreSQL
+- Database Driver: psycopg (or psycopg[binary])
+- Use parameterized SQL queries.
+- Keep all database operations inside a separate repository module.
+- Do not change the API routes except for replacing SQLite/database access with PostgreSQL.
+
+Database requirements:
+
+- Read DATABASE_URL from a .env file.
+- Never hardcode database credentials.
+- Commit only .env.example with placeholder values.
+- On application startup:
+  - Connect to PostgreSQL.
+  - Create a table named tasks if it does not exist.
+  - Schema:
+      id SERIAL PRIMARY KEY,
+      title TEXT NOT NULL,
+      done BOOLEAN NOT NULL DEFAULT FALSE
+  - Seed exactly three example tasks only if the table is empty.
+
+The API must provide these endpoints with identical behavior:
+
+GET /tasks
+GET /tasks/{id}
+POST /tasks
+PUT /tasks/{id}
+DELETE /tasks/{id}
+
+Requirements:
+- Use parameterized SQL queries.
+- Return the correct HTTP status codes (200, 201, 204, 400, 404).
+- Create a Dockerfile.
+- Create a docker-compose.yml with two services:
+  - api
+  - db
+- Use the official PostgreSQL image.
+- Persist data using a named Docker volume.
+- Use DATABASE_URL=postgres://postgres:dev@db:5432/tasks inside Docker Compose.
+- The entire application should start with a single command:
+  docker compose up
+
+Generate:
+- Dockerfile
+- docker-compose.yml
+- .env.example
+- Updated requirements.txt
+- Database connection code
+- Repository module
+- Startup instructions
+```
+
+---
+
+## What the AI Did Better
+
+- Generated the Dockerfile and Docker Compose configuration very quickly.
+- Produced a clean project structure with well-organized configuration files.
+- Added helpful comments and explanations for the generated files.
+- Reduced the amount of repetitive setup work.
+
+---
+
+## What the AI Got Wrong
+
+- Assumed parts of my existing project structure instead of matching it exactly.
+- Required manual changes to integrate with my current FastAPI project.
+- Needed verification to ensure all CRUD endpoints behaved exactly like my implementation.
+- Some generated code needed adjustments to match my existing repository and coding style.
+
+---
+
+## What My Prompt Forgot to Specify
+
+- The exact folder structure of my project.
+- The precise startup command for my FastAPI application.
+- Any optional features such as health checks or image optimization.
+- Coding style and formatting preferences.
+
+---
+
+## Prompt Improvement
+
+After testing the generated project, I improved the prompt by specifying my project structure, startup command, and expected file layout more clearly. The regenerated version required fewer manual changes and matched my implementation more closely.
+
+---
+
+## Conclusion
+
+Building the project manually first helped me understand how Docker, PostgreSQL, environment variables, and Docker Compose work together. Because I already understood the architecture, I could review the AI-generated code, identify incorrect assumptions, and confidently fix any issues. This exercise showed that AI is most useful when it assists an existing understanding rather than replacing it.

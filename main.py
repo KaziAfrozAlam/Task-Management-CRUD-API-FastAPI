@@ -3,7 +3,7 @@ import os
 import psycopg
 from psycopg.rows import dict_row
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Header
 from typing import Optional
 from pydantic import BaseModel
 from supabase_client import supabase
@@ -60,9 +60,16 @@ class AuthRequest(BaseModel):
 
 @app.get("/", summary="Root endpoint")
 def root():
-    return {"name": "Task API",
-            "Version": "1.0",
-            "endpoints": ["/tasks"]
+    return {
+        "name": "Task API",
+        "version": "1.0",
+        "endpoints": [
+            "/tasks",
+            "/auth/signup",
+            "/auth/login",
+            "/public/info",
+            "/protected/profile",
+        ],
     }
 @app.get("/health", summary="Health check")
 def health():
@@ -147,6 +154,31 @@ def login(auth: AuthRequest):
             status_code=401,
             detail={"error": "Invalid login credentials"},
         )    
+
+@app.get("/public/info", summary="Public information")
+def public_info():
+    return {
+        "message": "Welcome stranger! This info is public."
+    }
+
+@app.get("/protected/profile", summary="Protected profile")
+def protected_profile(authorization: str | None = Header(default=None)):
+    if (
+        authorization is None
+        or not authorization.startswith("Bearer ")
+        or len(authorization.split(" ", 1)[1].strip()) == 0
+    ):
+        raise HTTPException(
+            status_code=401,
+            detail={"error": "Access token required"},
+        )
+
+    token = authorization.split(" ", 1)[1]
+
+    return {
+        "message": "Bearer token received",
+        "token": token
+    }    
 
 @app.get("/tasks", summary="Get all tasks")
 def get_tasks():

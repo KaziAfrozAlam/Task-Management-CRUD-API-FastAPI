@@ -50,6 +50,36 @@ def init_db():
 
 init_db()
 
+def get_current_user(authorization: str | None):
+    if (
+        authorization is None
+        or not authorization.startswith("Bearer ")
+        or len(authorization.split(" ", 1)[1].strip()) == 0
+    ):
+        raise HTTPException(
+            status_code=401,
+            detail={"error": "Access token required"},
+        )
+
+    token = authorization.split(" ", 1)[1]
+
+    try:
+        user_response = supabase.auth.get_user(token)
+
+        if user_response.user is None:
+            raise HTTPException(
+                status_code=401,
+                detail={"error": "Invalid or expired token"},
+            )
+
+        return user_response.user
+
+    except Exception:
+        raise HTTPException(
+            status_code=401,
+            detail={"error": "Invalid or expired token"},
+        )
+
 class CreateTask(BaseModel):
     title: str
 
@@ -163,22 +193,12 @@ def public_info():
 
 @app.get("/protected/profile", summary="Protected profile")
 def protected_profile(authorization: str | None = Header(default=None)):
-    if (
-        authorization is None
-        or not authorization.startswith("Bearer ")
-        or len(authorization.split(" ", 1)[1].strip()) == 0
-    ):
-        raise HTTPException(
-            status_code=401,
-            detail={"error": "Access token required"},
-        )
-
-    token = authorization.split(" ", 1)[1]
+    user = get_current_user(authorization)
 
     return {
-        "message": "Bearer token received",
-        "token": token
-    }    
+        "id": user.id,
+        "email": user.email,
+    }  
 
 @app.get("/tasks", summary="Get all tasks")
 def get_tasks():

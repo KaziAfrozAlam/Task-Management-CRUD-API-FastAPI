@@ -4,6 +4,7 @@ import psycopg
 from psycopg.rows import dict_row
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
+from typing import Optional
 from pydantic import BaseModel
 from supabase_client import supabase
 load_dotenv()
@@ -52,6 +53,11 @@ init_db()
 class CreateTask(BaseModel):
     title: str
 
+class AuthRequest(BaseModel):
+    email: Optional[str] = None
+    password: Optional[str] = None
+    
+
 @app.get("/", summary="Root endpoint")
 def root():
     return {"name": "Task API",
@@ -70,6 +76,77 @@ def health():
         return {"status": "ok", "db": "ok"}
     except Exception:
         raise HTTPException(status_code=503, detail={"status": "error", "db": "unreachable"})
+
+@app.post("/auth/signup", status_code=201, summary="Create a new user account") 
+def signup(auth: AuthRequest):
+    # Validate input
+    if not auth.email or not auth.password:
+        raise HTTPException(
+            status_code=400,
+            detail={"error": "Email and password are required"}, 
+        )
+
+    if not auth.email.strip() or not auth.password.strip():
+        raise HTTPException(
+            status_code=400,
+            detail={"error": "Email and password cannot be empty"},
+        )
+
+    try:
+        response = supabase.auth.sign_up(
+            {
+                "email": auth.email,
+                "password": auth.password,
+            }
+        )
+
+        if response.user is None:
+            raise HTTPException(
+                status_code=400,
+                detail={"error": "Signup failed"},
+            )
+
+        return response.user
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=400,
+            detail={"error": str(e)},
+        )
+
+@app.post("/auth/login", summary="Login and receive JWT tokens")
+def login(auth: AuthRequest):
+    # Validate input
+    if not auth.email or not auth.password:
+        raise HTTPException(
+            status_code=400,
+            detail={"error": "Email and password are required"},
+        )
+
+    if not auth.email.strip() or not auth.password.strip():
+        raise HTTPException(
+            status_code=400,
+            detail={"error": "Email and password cannot be empty"},
+        )
+
+    try:
+        response = supabase.auth.sign_in_with_password(
+            {
+                "email": auth.email,
+                "password": auth.password,
+            }
+        )
+
+        return {
+            "access_token": response.session.access_token,
+            "refresh_token": response.session.refresh_token,
+        }
+
+    except Exception:
+        raise HTTPException(
+            status_code=401,
+            detail={"error": "Invalid login credentials"},
+        )    
 
 @app.get("/tasks", summary="Get all tasks")
 def get_tasks():

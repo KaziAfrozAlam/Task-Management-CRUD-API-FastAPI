@@ -3,7 +3,7 @@ import os
 import psycopg
 from psycopg.rows import dict_row
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException, Header
+from fastapi import FastAPI, HTTPException, Header, Depends
 from typing import Optional
 from pydantic import BaseModel
 from supabase_client import supabase
@@ -50,11 +50,13 @@ def init_db():
 
 init_db()
 
-def get_current_user(authorization: str | None):
+def get_current_user(
+    authorization: str | None = Header(default=None),
+):
     if (
         authorization is None
         or not authorization.startswith("Bearer ")
-        or len(authorization.split(" ", 1)[1].strip()) == 0
+        or not authorization.split(" ", 1)[1].strip()
     ):
         raise HTTPException(
             status_code=401,
@@ -64,15 +66,15 @@ def get_current_user(authorization: str | None):
     token = authorization.split(" ", 1)[1]
 
     try:
-        user_response = supabase.auth.get_user(token)
+        response = supabase.auth.get_user(token)
 
-        if user_response.user is None:
+        if response.user is None:
             raise HTTPException(
                 status_code=401,
                 detail={"error": "Invalid or expired token"},
             )
 
-        return user_response.user
+        return response.user
 
     except Exception:
         raise HTTPException(
@@ -191,17 +193,15 @@ def public_info():
         "message": "Welcome stranger! This info is public."
     }
 
-@app.get("/protected/profile", summary="Protected profile")
-def protected_profile(authorization: str | None = Header(default=None)):
-    user = get_current_user(authorization)
-
+@app.get("/protected/profile")
+def protected_profile(user=Depends(get_current_user)):
     return {
         "id": user.id,
         "email": user.email,
-    }  
+    } 
 
 @app.get("/tasks", summary="Get all tasks")
-def get_tasks():
+def get_tasks(user=Depends(get_current_user)):
     conn = get_connection()
     try:
         with conn.cursor() as cursor:
@@ -212,7 +212,10 @@ def get_tasks():
         conn.close()
 
 @app.get("/tasks/{task_id}", summary="Get a single task by ID")
-def get_task(task_id: int):
+def get_task(
+    task_id: int,
+    user=Depends(get_current_user),
+):
     conn = get_connection()
     try:
         with conn.cursor() as cursor:
@@ -226,7 +229,10 @@ def get_task(task_id: int):
     return row
 
 @app.post("/tasks", status_code=201, summary="Create a new task")
-def create_task(task: CreateTask):
+def create_task(
+    task: CreateTask,
+    user=Depends(get_current_user),
+):
     if not task.title or not task.title.strip():
         raise HTTPException(status_code=400, detail="Title is required and cannot be empty")
 
@@ -249,7 +255,11 @@ class UpdatedTask(BaseModel):
     done: bool | None = None
 
 @app.put("/tasks/{task_id}", summary="Update a task's title or done status")
-def update_task(task_id: int, update: UpdatedTask):
+def update_task(
+    task_id: int,
+    update: UpdatedTask,
+    user=Depends(get_current_user),
+):
     conn = get_connection()
     try:
         with conn.cursor() as cursor:
@@ -283,7 +293,10 @@ def update_task(task_id: int, update: UpdatedTask):
         conn.close()
 
 @app.delete("/tasks/{task_id}", status_code=204, summary="Delete a task")
-def delete_task(task_id: int):
+def delete_task(
+    task_id: int,
+    user=Depends(get_current_user),
+):
     conn = get_connection()
     try:
         with conn.cursor() as cursor:

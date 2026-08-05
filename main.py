@@ -5,7 +5,7 @@ from psycopg.rows import dict_row
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
-
+from supabase_client import supabase
 load_dotenv()
 
 app = FastAPI()

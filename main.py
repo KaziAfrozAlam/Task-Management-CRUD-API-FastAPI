@@ -4,12 +4,14 @@ import psycopg
 from psycopg.rows import dict_row
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Header, Depends
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from typing import Optional
 from pydantic import BaseModel
 from supabase_client import supabase
 load_dotenv()
 
 app = FastAPI()
+security = HTTPBearer()
 
 DATABASE_URL = os.environ["DATABASE_URL"]
 
@@ -51,19 +53,9 @@ def init_db():
 init_db()
 
 def get_current_user(
-    authorization: str | None = Header(default=None),
+    credentials: HTTPAuthorizationCredentials = Depends(security),
 ):
-    if (
-        authorization is None
-        or not authorization.startswith("Bearer ")
-        or not authorization.split(" ", 1)[1].strip()
-    ):
-        raise HTTPException(
-            status_code=401,
-            detail={"error": "Access token required"},
-        )
-
-    token = authorization.split(" ", 1)[1]
+    token = credentials.credentials
 
     try:
         response = supabase.auth.get_user(token)

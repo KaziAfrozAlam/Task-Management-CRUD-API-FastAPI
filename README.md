@@ -210,3 +210,20 @@ content-type: application/json
 **Real health check:** `/health` now runs `SELECT 1` against the database before responding. If the database is unreachable, it returns `503` instead of a false "ok" — a load balancer or orchestrator polling this endpoint uses it to decide whether to route traffic to this instance, pulling it out of rotation if the check fails.
 
 **The mortality experiment:** ran Postgres without a volume, created a table and inserted a row, then removed and recreated the container with identical settings. The data was completely gone — `SELECT * FROM demo` returned `relation "demo" does not exist`. This is exactly why `taskdata` is mounted as a volume in `compose.yaml`: without it, a container's data dies the moment the container itself is removed.
+
+## Week 4 – Authentication & Authorization
+
+This week focuses on implementing secure user authentication and authorization using **Supabase Auth** with **FastAPI**.
+
+### Features
+- User registration with email and password
+- User login with JWT access and refresh tokens
+- Protected API endpoints using Bearer authentication
+- Public and private API routes
+- JWT token validation via Supabase
+- Interactive Swagger UI with **Authorize** (Bearer Token) support
+
+### Swagger UI
+
+![Swagger UI - Authentication Screenshot 1](<FASTAPI STAGE 5 W4-images-0.jpg>)
+![Swagger UI - Protected Endpoints Screenshot 2](<FASTAPI STAGE 5 W4-images-1.jpg>)

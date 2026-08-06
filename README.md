@@ -1,10 +1,17 @@
 # Task API
 
-A simple CRUD API for managing a to-do list, built with FastAPI. Tasks are stored in memory (no database yet).
+A full-stack task management API built with FastAPI, evolving across four assignments from in-memory storage → SQLite → PostgreSQL (Docker) → Supabase Authentication.
 
 ## What this is
 
-This API lets you create, read, update, and delete tasks (the four CRUD operations) over HTTP. It was built as part of the FlyRank Backend Internship, Week 2 assignment.
+This project is a full-stack task management API built with FastAPI, developed progressively across four assignments as part of the FlyRank Backend Internship:
+
+- **A1** — In-memory CRUD API (tasks stored in a Python list)
+- **A2** — SQLite database (tasks persist to disk, survive restarts)
+- **A3** — PostgreSQL in Docker (production-grade database, one-command startup with `docker compose up`)
+- **A4** — Supabase Authentication (JWT-based login, protected routes, Bearer token authorization)
+
+Each assignment builds on the same codebase — same endpoints, swapped storage and security layers underneath.
 
 ## How to install & run
 
@@ -211,19 +218,88 @@ content-type: application/json
 
 **The mortality experiment:** ran Postgres without a volume, created a table and inserted a row, then removed and recreated the container with identical settings. The data was completely gone — `SELECT * FROM demo` returned `relation "demo" does not exist`. This is exactly why `taskdata` is mounted as a volume in `compose.yaml`: without it, a container's data dies the moment the container itself is removed.
 
-## Week 4 – Authentication & Authorization
+## Authentication & Authorization
 
-This week focuses on implementing secure user authentication and authorization using **Supabase Auth** with **FastAPI**.
+This week focuses on implementing secure user authentication and authorization using **Supabase Authentication** with **FastAPI** , **PostgreSQL**. The project supports full CRUD operations, JWT-based authentication, protected API endpoints, and interactive API documentation using Swagger UI.
 
-### Features
-- User registration with email and password
-- User login with JWT access and refresh tokens
-- Protected API endpoints using Bearer authentication
-- Public and private API routes
-- JWT token validation via Supabase
-- Interactive Swagger UI with **Authorize** (Bearer Token) support
+## Features
+
+- FastAPI REST API
+- PostgreSQL database
+- Complete CRUD operations
+- User signup and login with Supabase Auth
+- JWT Bearer Authentication
+- Protected API endpoints
+- Swagger UI with Bearer Token authorization
+- Docker Compose support
+
+## Tech Stack
+
+- Python 3.12
+- FastAPI
+- PostgreSQL
+- Psycopg
+- Supabase
+- Docker
+- Uvicorn
+
+### Setup & Run
+
+1. Copy `.env.example` to `.env` and fill in your Supabase credentials:
+```bash
+cp .env.example .env
+```
+2. Install dependencies:
+```bash
+pip install fastapi uvicorn supabase python-dotenv
+```
+3. Run the server:
+```bash
+uvicorn main:app --reload
+```
+
+### Environment Variables
+
+| Variable | Description |
+|---|---|
+| `SUPABASE_URL` | Your Supabase project URL |
+| `SUPABASE_KEY` | Your Supabase anon/public key |
+
+### API Reference
+
+| Method | Path | Auth Required | Description |
+|---|---|---|---|
+| GET | `/` | No | Root endpoint |
+| GET | `/health` | No | Health check |
+| POST | `/auth/signup` | No | Create a new user account |
+| POST | `/auth/login` | No | Login and receive JWT tokens |
+| POST | `/auth/logout` | Yes 🔒 | End the user session |
+| GET | `/public/info` | No | Public information |
+| GET | `/protected/profile` | Yes 🔒 | Protected profile |
+| GET | `/tasks` | Yes 🔒 | Get all tasks |
+| POST | `/tasks` | Yes 🔒 | Create a new task |
+| GET | `/tasks/{task_id}` | Yes 🔒 | Get a single task by ID |
+| PUT | `/tasks/{task_id}` | Yes 🔒 | Update a task's title or done status |
+| DELETE | `/tasks/{task_id}` | Yes 🔒 | Delete a task |
+
+**Status codes:**
+| Code | Meaning | When |
+|---|---|---|
+| `200` | OK | Successful GET, login, profile read |
+| `201` | Created | Successful signup, task created |
+| `204` | No Content | Successful logout, task deleted |
+| `400` | Bad Request | Missing or invalid input |
+| `401` | Unauthorized | Missing, malformed, or expired token |
 
 ### Swagger UI
 
 ![Swagger UI - Authentication Screenshot 1](<FASTAPI STAGE 5 W4-images-0.jpg>)
 ![Swagger UI - Protected Endpoints Screenshot 2](<FASTAPI STAGE 5 W4-images-1.jpg>)
+
+*Lock icons visible on protected routes; Bearer token authorization working end-to-end from the browser.*
+
+## Security
+
+The `.env` file is excluded from Git using `.gitignore`.
+
+Only `.env.example` is committed to the repository. Replace the placeholder values with your own Supabase and PostgreSQL credentials before running the project.

@@ -349,3 +349,51 @@ When testing with the regular user account (`test@example.com`), authentication 
 
 ![403 Forbidden](<W4 EXTRAS-images-0.jpg>)
 ![403 Forbidden](<W4 EXTRAS-images-1.jpg>)
+
+# AI vs Me
+
+## Prompt Used
+
+```text
+(Paste the complete prompt here.)
+```
+
+## Comparison
+
+### 1. Token Extraction
+
+My implementation uses FastAPI's `HTTPBearer` dependency, which safely extracts the Bearer token before validation.
+
+The AI implementation extracted the Authorization header differently and required additional validation.
+
+---
+
+### 2. Security Review
+
+My implementation:
+
+- Rejects missing tokens with HTTP 401.
+- Rejects invalid or expired tokens.
+- Uses Supabase to validate JWTs.
+- Does not expose Supabase keys.
+- Does not log JWTs.
+
+The AI implementation:
+
+- (Write what you observed after reviewing the generated code.)
+- Example: It trusted the Authorization header without checking the Bearer prefix.
+- Example: It caught every exception with a generic `except Exception`.
+- Example: It did not properly validate missing tokens.
+
+---
+
+### 3. Prompt Improvements
+
+While reviewing the generated code, I realized my original prompt did not explicitly specify:
+
+- Proper validation of the `Bearer ` prefix.
+- Reusable authentication dependency.
+- Clear error responses for invalid JWTs.
+- Swagger security configuration.
+
+After improving the prompt, the AI generated cleaner authentication code and more secure route protection.

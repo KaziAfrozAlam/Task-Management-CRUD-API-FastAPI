@@ -349,3 +349,91 @@ When testing with the regular user account (`test@example.com`), authentication 
 
 ![403 Forbidden](<W4 EXTRAS-images-0.jpg>)
 ![403 Forbidden](<W4 EXTRAS-images-1.jpg>)
+
+# AI vs Me
+
+## Prompt Used
+
+```text
+Build a secure Task Management REST API using Python, FastAPI, PostgreSQL, and Supabase Authentication.
+
+Requirements:
+
+- Use FastAPI.
+- Use PostgreSQL with psycopg.
+- Use Supabase Auth as the Identity Provider.
+- Read configuration from a .env file.
+- Create a tasks table if it does not exist.
+
+Implement these endpoints:
+
+Authentication:
+- POST /auth/signup → Create a new user account (201)
+- POST /auth/login → Login and return access and refresh tokens (200)
+
+Public:
+- GET /public/info → Accessible without authentication
+
+Protected:
+- GET /protected/profile → Return authenticated user's ID and email
+- GET /tasks
+- GET /tasks/{id}
+- POST /tasks
+- PUT /tasks/{id}
+- DELETE /tasks/{id}
+
+Requirements:
+
+- Use HTTP Bearer Authentication.
+- Extract the JWT from the Authorization header.
+- Validate the token using Supabase Auth.
+- Reject missing, invalid, or expired tokens with HTTP 401.
+- Return HTTP 400 for invalid requests.
+- Return HTTP 404 when a task does not exist.
+- Return HTTP 204 after successful deletion.
+
+Configure Swagger UI with HTTPBearer so protected endpoints display the Authorize button.
+
+Organize the code cleanly with reusable authentication middleware or dependency.
+```
+
+## Comparison
+
+### 1. Token Extraction
+
+My implementation uses FastAPI's `HTTPBearer` dependency, which safely extracts the Bearer token before validation.
+
+The AI implementation also uses FastAPI's `HTTPBearer` dependency instead of manually splitting the `Authorization` header. It sets `auto_error=False`, which keeps the authentication logic reusable while allowing the code to return a custom HTTP 401 response when the header is missing or malformed.
+
+---
+
+### 2. Security Review
+
+My implementation:
+
+- Rejects missing tokens with HTTP 401.
+- Rejects invalid or expired tokens.
+- Uses Supabase to validate JWTs.
+- Does not expose Supabase keys.
+- Does not log JWTs.
+
+The AI implementation:
+
+- Correctly validates that authentication credentials exist and that the scheme is `Bearer` before calling Supabase.
+- Calls `supabase.auth.get_user()` so Supabase Auth remains the source of truth for invalid or expired JWTs.
+- Returns HTTP 401 for missing, invalid, or expired tokens through a reusable authentication dependency.
+- Keeps Supabase configuration in environment variables loaded from `.env` and does not print or log JWTs or Supabase keys.
+- Catches Supabase validation errors and converts them into a consistent 401 response, although the broad exception handling could be narrowed in a larger production codebase.
+
+---
+
+### 3. Prompt Improvements
+
+While reviewing the generated code, I realized my original prompt did not explicitly specify:
+
+- Proper validation of the `Bearer ` prefix.
+- Reusable authentication dependency.
+- Clear error responses for invalid JWTs.
+- Swagger security configuration.
+
+After improving the prompt, the AI generated cleaner authentication code and more secure route protection.

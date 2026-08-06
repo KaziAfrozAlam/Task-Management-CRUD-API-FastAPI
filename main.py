@@ -1,19 +1,62 @@
 import os
+from typing import Annotated
 
 import psycopg
-from psycopg.rows import dict_row
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException, Header, Depends
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from typing import Optional
-from pydantic import BaseModel
+from fastapi import Depends, FastAPI, HTTPException, Response, status
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from psycopg.rows import dict_row
+from pydantic import BaseModel, ConfigDict, Field
+
 from supabase_client import supabase
+
 load_dotenv()
 
-app = FastAPI()
-security = HTTPBearer()
+DATABASE_URL = os.getenv("DATABASE_URL")
+if not DATABASE_URL:
+    raise RuntimeError("DATABASE_URL must be set in the environment or .env file")
 
-DATABASE_URL = os.environ["DATABASE_URL"]
+app = FastAPI(
+    title="Secure Task Management API",
+    version="1.0.0",
+    description="Task Management REST API secured with Supabase Authentication.",
+)
+security = HTTPBearer(auto_error=False)
+
+
+class AuthRequest(BaseModel):
+    email: str = Field(min_length=1)
+    password: str = Field(min_length=1)
+
+
+class TokenResponse(BaseModel):
+    access_token: str
+    refresh_token: str
+    token_type: str = "bearer"
+
+
+class UserProfile(BaseModel):
+    id: str
+    email: str | None = None
+
+
+class TaskCreate(BaseModel):
+    title: str = Field(min_length=1)
+    done: bool = False
+
+
+class TaskUpdate(BaseModel):
+    title: str | None = None
+    done: bool | None = None
+
+
+class Task(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    user_id: str
+    title: str
+    done: bool
 
 
 def get_connection():
@@ -21,66 +64,67 @@ def get_connection():
 
 
 def init_db():
-    conn = get_connection()
-    try:
+    with get_connection() as conn:
         with conn.cursor() as cursor:
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS tasks (
                     id SERIAL PRIMARY KEY,
+                    user_id TEXT NOT NULL,
                     title TEXT NOT NULL,
-                    done BOOLEAN NOT NULL DEFAULT FALSE
+                    done BOOLEAN NOT NULL DEFAULT FALSE,
+                    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
                 )
-            """)
-
-            cursor.execute("SELECT COUNT(*) FROM tasks")
-            count = cursor.fetchone()["count"]
-
-            if count == 0:
-                seed_tasks = [
-                    ("Learn FastAPI", False),
-                    ("Build CRUD API", False),
-                    ("Publish to GitHub", False),
-                ]
-                cursor.executemany(
-                    "INSERT INTO tasks (title, done) VALUES (%s, %s)", seed_tasks
-                )
-
-        conn.commit()
-    finally:
-        conn.close()
+                """)
+            cursor.execute("ALTER TABLE tasks ADD COLUMN IF NOT EXISTS user_id TEXT")
+            cursor.execute(
+                "ALTER TABLE tasks ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()"
+            )
+            cursor.execute(
+                "ALTER TABLE tasks ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()"
+            )
+            cursor.execute(
+                "CREATE INDEX IF NOT EXISTS idx_tasks_user_id ON tasks (user_id)"
+            )
 
 
 init_db()
 
-def get_current_user(
-    credentials: HTTPAuthorizationCredentials = Depends(security),
+
+def bad_request(message: str) -> HTTPException:
+    return HTTPException(
+        status_code=status.HTTP_400_BAD_REQUEST, detail={"error": message}
+    )
+
+
+def unauthorized(message: str = "Invalid or expired token") -> HTTPException:
+    return HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED, detail={"error": message}
+    )
+
+
+def validate_task_title(title: str | None, *, field_name: str = "Title") -> str:
+    if title is None or not title.strip():
+        raise bad_request(f"{field_name} is required and cannot be empty")
+    return title.strip()
+
+
+async def get_current_user(
+    credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(security)],
 ):
-    token = credentials.credentials
+    if credentials is None or credentials.scheme.lower() != "bearer":
+        raise unauthorized("Missing bearer token")
 
     try:
-        response = supabase.auth.get_user(token)
+        response = supabase.auth.get_user(credentials.credentials)
+    except Exception as exc:
+        raise unauthorized() from exc
 
-        if response.user is None:
-            raise HTTPException(
-                status_code=401,
-                detail={"error": "Invalid or expired token"},
-            )
+    if response.user is None:
+        raise unauthorized()
 
-        return response.user
+    return response.user
 
-    except Exception:
-        raise HTTPException(
-            status_code=401,
-            detail={"error": "Invalid or expired token"},
-        )
-
-class CreateTask(BaseModel):
-    title: str
-
-class AuthRequest(BaseModel):
-    email: Optional[str] = None
-    password: Optional[str] = None
-    
 
 @app.get("/", summary="Root endpoint")
 def root():
@@ -88,237 +132,189 @@ def root():
         "name": "Task API",
         "version": "1.0",
         "endpoints": [
-            "/tasks",
             "/auth/signup",
             "/auth/login",
             "/public/info",
             "/protected/profile",
-            "/admin",
+            "/tasks",
         ],
     }
+
+
 @app.get("/health", summary="Health check")
 def health():
     try:
-        conn = get_connection()
-        try:
+        with get_connection() as conn:
             with conn.cursor() as cursor:
                 cursor.execute("SELECT 1")
-        finally:
-            conn.close()
         return {"status": "ok", "db": "ok"}
-    except Exception:
-        raise HTTPException(status_code=503, detail={"status": "error", "db": "unreachable"})
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail={"status": "error", "db": "unreachable"},
+        ) from exc
 
-@app.post("/auth/signup", status_code=201, summary="Create a new user account") 
+
+@app.post(
+    "/auth/signup",
+    status_code=status.HTTP_201_CREATED,
+    response_model=UserProfile,
+    summary="Create a new user account",
+)
 def signup(auth: AuthRequest):
-    # Validate input
-    if not auth.email or not auth.password:
-        raise HTTPException(
-            status_code=400,
-            detail={"error": "Email and password are required"}, 
-        )
-
-    if not auth.email.strip() or not auth.password.strip():
-        raise HTTPException(
-            status_code=400,
-            detail={"error": "Email and password cannot be empty"},
-        )
+    password = validate_task_title(auth.password, field_name="Password")
 
     try:
-        response = supabase.auth.sign_up(
-            {
-                "email": auth.email,
-                "password": auth.password,
-            }
-        )
+        response = supabase.auth.sign_up({"email": auth.email, "password": password})
+    except Exception as exc:
+        raise bad_request(str(exc)) from exc
 
-        if response.user is None:
-            raise HTTPException(
-                status_code=400,
-                detail={"error": "Signup failed"},
-            )
+    if response.user is None:
+        raise bad_request("Signup failed")
 
-        return response.user
+    return {"id": response.user.id, "email": response.user.email}
 
-    except Exception as e:
-        raise HTTPException(
-            status_code=400,
-            detail={"error": str(e)},
-        )
 
-@app.post("/auth/login", summary="Login and receive JWT tokens")
+@app.post(
+    "/auth/login", response_model=TokenResponse, summary="Login and receive JWT tokens"
+)
 def login(auth: AuthRequest):
-    # Validate input
-    if not auth.email or not auth.password:
-        raise HTTPException(
-            status_code=400,
-            detail={"error": "Email and password are required"},
-        )
-
-    if not auth.email.strip() or not auth.password.strip():
-        raise HTTPException(
-            status_code=400,
-            detail={"error": "Email and password cannot be empty"},
-        )
+    password = validate_task_title(auth.password, field_name="Password")
 
     try:
         response = supabase.auth.sign_in_with_password(
-            {
-                "email": auth.email,
-                "password": auth.password,
-            }
+            {"email": auth.email, "password": password}
         )
+    except Exception as exc:
+        raise unauthorized("Invalid login credentials") from exc
 
-        return {
-            "access_token": response.session.access_token,
-            "refresh_token": response.session.refresh_token,
-        }
+    if response.session is None:
+        raise unauthorized("Invalid login credentials")
 
-    except Exception:
-        raise HTTPException(
-            status_code=401,
-            detail={"error": "Invalid login credentials"},
-        )    
+    return {
+        "access_token": response.session.access_token,
+        "refresh_token": response.session.refresh_token,
+        "token_type": "bearer",
+    }
+
 
 @app.get("/public/info", summary="Public information")
 def public_info():
-    return {
-        "message": "Welcome stranger! This info is public."
-    }
+    return {"message": "This public endpoint does not require authentication."}
+
 
 @app.get(
     "/protected/profile",
-    summary="Authenticated user profile"
+    response_model=UserProfile,
+    summary="Authenticated user profile",
 )
-def protected_profile(
-    user=Depends(get_current_user),
-):
-    return {
-        "id": user.id,
-        "email": user.email,
-    } 
+def protected_profile(user=Depends(get_current_user)):
+    return {"id": user.id, "email": user.email}
 
 
-@app.get("/admin", summary="Admin only")
-def admin_route(user=Depends(get_current_user)):
-    if user.email != "admin@example.com":
-        raise HTTPException(
-            status_code=403,
-            detail={"error": "Forbidden: Admin access only"},
-        )
-
-    return {
-        "message": "Welcome Admin!"
-    }
-
-@app.get("/tasks", summary="Get all tasks")
+@app.get("/tasks", response_model=list[Task], summary="Get all tasks")
 def get_tasks(user=Depends(get_current_user)):
-    conn = get_connection()
-    try:
+    with get_connection() as conn:
         with conn.cursor() as cursor:
-            cursor.execute("SELECT * FROM tasks")
-            rows = cursor.fetchall()
-        return rows
-    finally:
-        conn.close()
+            cursor.execute(
+                "SELECT id, user_id, title, done FROM tasks WHERE user_id = %s ORDER BY id",
+                (user.id,),
+            )
+            return cursor.fetchall()
 
-@app.get("/tasks/{task_id}", summary="Get a single task by ID")
-def get_task(
-    task_id: int,
-    user=Depends(get_current_user),
-):
-    conn = get_connection()
-    try:
+
+@app.get("/tasks/{task_id}", response_model=Task, summary="Get a single task by ID")
+def get_task(task_id: int, user=Depends(get_current_user)):
+    with get_connection() as conn:
         with conn.cursor() as cursor:
-            cursor.execute("SELECT * FROM tasks WHERE id = %s", (task_id,))
+            cursor.execute(
+                "SELECT id, user_id, title, done FROM tasks WHERE id = %s AND user_id = %s",
+                (task_id, user.id),
+            )
             row = cursor.fetchone()
-    finally:
-        conn.close()
 
     if row is None:
-        raise HTTPException(status_code=404, detail=f"Task {task_id} not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Task not found"
+        )
     return row
 
-@app.post("/tasks", status_code=201, summary="Create a new task")
-def create_task(
-    task: CreateTask,
-    user=Depends(get_current_user),
-):
-    if not task.title or not task.title.strip():
-        raise HTTPException(status_code=400, detail="Title is required and cannot be empty")
 
-    conn = get_connection()
-    try:
+@app.post(
+    "/tasks",
+    status_code=status.HTTP_201_CREATED,
+    response_model=Task,
+    summary="Create a new task",
+)
+def create_task(task: TaskCreate, user=Depends(get_current_user)):
+    title = validate_task_title(task.title)
+
+    with get_connection() as conn:
         with conn.cursor() as cursor:
             cursor.execute(
-                "INSERT INTO tasks (title, done) VALUES (%s, %s) RETURNING *",
-                (task.title, False),
+                """
+                INSERT INTO tasks (user_id, title, done)
+                VALUES (%s, %s, %s)
+                RETURNING id, user_id, title, done
+                """,
+                (user.id, title, task.done),
             )
-            new_task = cursor.fetchone()
-        conn.commit()
-    finally:
-        conn.close()
+            return cursor.fetchone()
 
-    return new_task
 
-class UpdatedTask(BaseModel):
-    title: str | None = None
-    done: bool | None = None
+@app.put("/tasks/{task_id}", response_model=Task, summary="Update a task")
+def update_task(task_id: int, update: TaskUpdate, user=Depends(get_current_user)):
+    if update.title is None and update.done is None:
+        raise bad_request("At least one field must be provided")
 
-@app.put("/tasks/{task_id}", summary="Update a task's title or done status")
-def update_task(
-    task_id: int,
-    update: UpdatedTask,
-    user=Depends(get_current_user),
-):
-    conn = get_connection()
-    try:
+    with get_connection() as conn:
         with conn.cursor() as cursor:
-            cursor.execute("SELECT * FROM tasks WHERE id = %s", (task_id,))
+            cursor.execute(
+                "SELECT id, user_id, title, done FROM tasks WHERE id = %s AND user_id = %s",
+                (task_id, user.id),
+            )
             row = cursor.fetchone()
 
             if row is None:
-                raise HTTPException(status_code=404, detail=f"Task {task_id} not found")
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND, detail="Task not found"
+                )
 
-            new_title = row["title"]
-            new_done = row["done"]
-
+            title = row["title"]
             if update.title is not None:
-                if not update.title.strip():
-                    raise HTTPException(status_code=400, detail="Title cannot be empty")
-                new_title = update.title
+                title = validate_task_title(update.title)
 
-            if update.done is not None:
-                new_done = update.done
+            done = row["done"] if update.done is None else update.done
 
             cursor.execute(
-                "UPDATE tasks SET title = %s, done = %s WHERE id = %s",
-                (new_title, new_done, task_id),
+                """
+                UPDATE tasks
+                SET title = %s, done = %s, updated_at = NOW()
+                WHERE id = %s AND user_id = %s
+                RETURNING id, user_id, title, done
+                """,
+                (title, done, task_id, user.id),
             )
-            conn.commit()
+            return cursor.fetchone()
 
-            cursor.execute("SELECT * FROM tasks WHERE id = %s", (task_id,))
-            updated_row = cursor.fetchone()
-        return updated_row
-    finally:
-        conn.close()
 
-@app.delete("/tasks/{task_id}", status_code=204, summary="Delete a task")
-def delete_task(
-    task_id: int,
-    user=Depends(get_current_user),
-):
-    conn = get_connection()
-    try:
+@app.delete(
+    "/tasks/{task_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Delete a task",
+)
+def delete_task(task_id: int, user=Depends(get_current_user)):
+    with get_connection() as conn:
         with conn.cursor() as cursor:
-            cursor.execute("SELECT * FROM tasks WHERE id = %s", (task_id,))
-            row = cursor.fetchone()
+            cursor.execute(
+                "DELETE FROM tasks WHERE id = %s AND user_id = %s RETURNING id",
+                (task_id, user.id),
+            )
+            deleted = cursor.fetchone()
 
-            if row is None:
-                raise HTTPException(status_code=404, detail=f"Task {task_id} not found")
+    if deleted is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Task not found"
+        )
 
-            cursor.execute("DELETE FROM tasks WHERE id = %s", (task_id,))
-        conn.commit()
-    finally:
-        conn.close()
-    return
+    return Response(status_code=status.HTTP_204_NO_CONTENT)

@@ -93,6 +93,7 @@ def root():
             "/auth/login",
             "/public/info",
             "/protected/profile",
+            "/admin",
         ],
     }
 @app.get("/health", summary="Health check")
@@ -185,12 +186,30 @@ def public_info():
         "message": "Welcome stranger! This info is public."
     }
 
-@app.get("/protected/profile")
-def protected_profile(user=Depends(get_current_user)):
+@app.get(
+    "/protected/profile",
+    summary="Authenticated user profile"
+)
+def protected_profile(
+    user=Depends(get_current_user),
+):
     return {
         "id": user.id,
         "email": user.email,
     } 
+
+
+@app.get("/admin", summary="Admin only")
+def admin_route(user=Depends(get_current_user)):
+    if user.email != "admin@example.com":
+        raise HTTPException(
+            status_code=403,
+            detail={"error": "Forbidden: Admin access only"},
+        )
+
+    return {
+        "message": "Welcome Admin!"
+    }
 
 @app.get("/tasks", summary="Get all tasks")
 def get_tasks(user=Depends(get_current_user)):

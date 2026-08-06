@@ -303,3 +303,49 @@ uvicorn main:app --reload
 The `.env` file is excluded from Git using `.gitignore`.
 
 Only `.env.example` is committed to the repository. Replace the placeholder values with your own Supabase and PostgreSQL credentials before running the project.
+
+## ⭐ Optional Extras
+
+### 1. JWT Analysis
+
+The access token issued after login was decoded using **jwt.io** to better understand its structure.
+
+A JSON Web Token (JWT) contains three parts: the **Header**, **Payload**, and **Signature**.
+
+- The **Header** specifies the signing algorithm (`ES256`) and token type.
+- The **Payload** contains standard claims such as the user ID (`sub`), email address, issuer (`iss`), issued-at time (`iat`), expiration time (`exp`), and authenticated role.
+
+JWTs are **digitally signed but not encrypted**, which means anyone can decode the header and payload. Therefore, sensitive information such as passwords, API keys, or secrets should never be stored inside a JWT.
+
+This project uses **ES256 (Elliptic Curve Digital Signature Algorithm)**. The JWT signature was successfully verified using the corresponding public key.
+
+### Decoded JWT
+
+### JWT Header
+![JWT Header](image-1.png)
+
+### JWT Payload
+![JWT Payload](image-2.png)
+
+### JWT Signature Verification
+![JWT Signature Verification](image-3.png)
+
+### 2. Authorization (403 Forbidden)
+
+An additional **Admin-only** endpoint was implemented to demonstrate authorization.
+
+```
+GET /admin
+```
+
+This endpoint requires a valid JWT **and** checks whether the authenticated user is an administrator.
+
+- **401 Unauthorized** → Returned when no valid JWT is provided.
+- **403 Forbidden** → Returned when the user is authenticated but does not have permission to access the endpoint.
+
+When testing with the regular user account (`test@example.com`), authentication succeeds but access to the `/admin` endpoint is denied with a **403 Forbidden** response.
+
+### Admin Authorization Test
+
+![403 Forbidden](<W4 EXTRAS-images-0.jpg>)
+![403 Forbidden](<W4 EXTRAS-images-1.jpg>)

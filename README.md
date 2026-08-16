@@ -62,31 +62,31 @@ The interactive API documentation is available at **`/docs`** once the server is
 Below are screenshots of the Swagger UI demonstrating the available endpoints and CRUD operations.
 
 ### Screenshot 1
-![Swagger UI Screenshot 1](<Step 5 Swagger UI_pages-to-jpg-0001.jpg>)
+![Swagger UI Screenshot 1](<screenshots/Step 5 Swagger UI_pages-to-jpg-0001.jpg>)
 
 ### Screenshot 2
-![Swagger UI Screenshot 2](<Step 5 Swagger UI_pages-to-jpg-0002.jpg>)
+![Swagger UI Screenshot 2](<screenshots/Step 5 Swagger UI_pages-to-jpg-0002.jpg>)
 
 ### Screenshot 3
-![Swagger UI Screenshot 3](<Step 5 Swagger UI_pages-to-jpg-0003.jpg>)
+![Swagger UI Screenshot 3](<screenshots/Step 5 Swagger UI_pages-to-jpg-0003.jpg>)
 
 ### Screenshot 4
-![Swagger UI Screenshot 4](<Step 5 Swagger UI_pages-to-jpg-0004.jpg>)
+![Swagger UI Screenshot 4](<screenshots/Step 5 Swagger UI_pages-to-jpg-0004.jpg>)
 
 ### Screenshot 5
-![Swagger UI Screenshot 5](<Step 5 Swagger UI_pages-to-jpg-0005.jpg>)
+![Swagger UI Screenshot 5](<screenshots/Step 5 Swagger UI_pages-to-jpg-0005.jpg>)
 
 ### Screenshot 6
-![Swagger UI Screenshot 6](<Step 5 Swagger UI_pages-to-jpg-0006.jpg>)
+![Swagger UI Screenshot 6](<screenshots/Step 5 Swagger UI_pages-to-jpg-0006.jpg>)
 
 ### Screenshot 7
-![Swagger UI Screenshot 7](<Step 5 Swagger UI_pages-to-jpg-0007.jpg>)
+![Swagger UI Screenshot 7](<screenshots/Step 5 Swagger UI_pages-to-jpg-0007.jpg>)
 
 ### Screenshot 8
-![Swagger UI Screenshot 8](<Step 5 Swagger UI_pages-to-jpg-0008.jpg>)
+![Swagger UI Screenshot 8](<screenshots/Step 5 Swagger UI_pages-to-jpg-0008.jpg>)
 
 ### Screenshot 9
-![Swagger UI Screenshot 9](<Step 5 Swagger UI_pages-to-jpg-0009.jpg>)
+![Swagger UI Screenshot 9](<screenshots/Step 5 Swagger UI_pages-to-jpg-0009.jpg>)
 
 ## Database
 
@@ -114,13 +114,13 @@ SELECT COUNT(*) FROM tasks;
 ```
 This returned `3`, confirming the table held exactly the 3 seeded tasks before I explored `UPDATE`/`DELETE` behavior.
 
-![SQLite CLI screenshot](./sqlite-cli-screenshot.png)
+![SQLite CLI screenshot](screenshots/sqlite-cli-screenshot.png)
 
-![SQLite CLI screenshot](./image.png)
+![SQLite CLI screenshot](screenshots/image.png)
 
 *Viewed using a browser-based SQLite viewer in Codespaces, showing the `tasks` table with 3 seeded rows.*
 
-![SQLite CLI screenshot](./sqlite-db-view.png)
+![SQLite CLI screenshot](screenshots/sqlite-db-view.png)
 
 ## AI vs Me — Stage 6
 
@@ -210,7 +210,7 @@ content-type: application/json
 
 **Note on Postgres version:** this project pins `postgres:16` rather than the `latest` tag. Postgres 18+ images changed their data directory layout in a way that's incompatible with the simple volume mount used here — pinning to 16 avoids that issue while still being a fully current, supported version.
 
-![Database screenshot](./postgres-db-screenshot.png)
+![Database screenshot](screenshots/postgres-db-screenshot.png)
 
 ## Stretch goals
 
@@ -293,8 +293,8 @@ uvicorn main:app --reload
 
 ### Swagger UI
 
-![Swagger UI - Authentication Screenshot 1](<FASTAPI STAGE 5 W4-images-0.jpg>)
-![Swagger UI - Protected Endpoints Screenshot 2](<FASTAPI STAGE 5 W4-images-1.jpg>)
+![screenshots/Swagger UI - Authentication Screenshot 1](<screenshots/FASTAPI STAGE 5 W4-images-0.jpg>)
+![screenshots/Swagger UI - Protected Endpoints Screenshot 2](<screenshots/FASTAPI STAGE 5 W4-images-1.jpg>)
 
 *Lock icons visible on protected routes; Bearer token authorization working end-to-end from the browser.*
 
@@ -322,13 +322,13 @@ This project uses **ES256 (Elliptic Curve Digital Signature Algorithm)**. The JW
 ### Decoded JWT
 
 ### JWT Header
-![JWT Header](image-1.png)
+![JWT Header](screenshots/image-1.png)
 
 ### JWT Payload
-![JWT Payload](image-2.png)
+![JWT Payload](screenshots/image-2.png)
 
 ### JWT Signature Verification
-![JWT Signature Verification](image-3.png)
+![JWT Signature Verification](screenshots/image-3.png)
 
 ### 2. Authorization (403 Forbidden)
 
@@ -347,5 +347,11 @@ When testing with the regular user account (`test@example.com`), authentication 
 
 ### Admin Authorization Test
 
-![403 Forbidden](<W4 EXTRAS-images-0.jpg>)
-![403 Forbidden](<W4 EXTRAS-images-1.jpg>)
+![403 Forbidden](<screenshots/W4 EXTRAS-images-0.jpg>)
+![403 Forbidden](<screenshots/W4 EXTRAS-images-1.jpg>)
+
+## Provider config
+This endpoint talks to an LLM through three environment variables — `LLM_BASE_URL`, 
+`LLM_API_KEY`, and `LLM_MODEL`. Swapping providers (e.g. OpenRouter → a local Ollama 
+instance, or a different hosted API) means changing these three values only — 
+no code changes required.

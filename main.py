@@ -5,6 +5,7 @@ from psycopg.rows import dict_row
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Header, Depends
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from llm.schema import TriageOutput, Category, Urgency, Team
 from typing import Optional
 from pydantic import BaseModel
 from supabase_client import supabase
@@ -80,7 +81,9 @@ class CreateTask(BaseModel):
 class AuthRequest(BaseModel):
     email: Optional[str] = None
     password: Optional[str] = None
-    
+
+class TriageRequest(BaseModel):
+    text: str | None = None    
 
 @app.get("/", summary="Root endpoint")
 def root():
@@ -322,3 +325,29 @@ def delete_task(
     finally:
         conn.close()
     return
+
+@app.post("/triage", response_model=TriageOutput, summary="Classify a support message")
+def triage(payload: TriageRequest):
+    if not payload.text or not payload.text.strip():
+        raise HTTPException(
+            status_code=400,
+            detail={"error": "text is required and cannot be empty"},
+        )
+
+    if len(payload.text) > 2000:
+        raise HTTPException(
+            status_code=400,
+            detail={"error": "text must be 2000 characters or fewer"},
+        )
+
+    if os.environ.get("LLM_STUB") == "1":
+        return TriageOutput(
+            category=Category.other,
+            urgency=Urgency.normal,
+            suggested_team=Team.support,
+            confidence=0.42,
+            reason="Stub response — model not called (LLM_STUB=1).",
+        )
+
+    # Real model call comes in Stage 2/3
+    raise HTTPException(status_code=501, detail={"error": "Model call not implemented yet"})

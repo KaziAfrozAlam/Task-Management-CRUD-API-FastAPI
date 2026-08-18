@@ -12,4 +12,7 @@ venv/
 
 # VS Code
 .vscode/
+
+# Quarantine logs — grow over time, not meant to be committed
+logs/*.jsonl
 EOF

@@ -6,10 +6,11 @@ from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Header, Depends
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from llm.schema import TriageOutput, Category, Urgency, Team
-from llm.client import call_triage_model
 from typing import Optional
 from pydantic import BaseModel
 from supabase_client import supabase
+from llm.client import call_triage_model, ModelOutputError
+from llm.quarantine import log_quarantine
 load_dotenv()
 
 app = FastAPI()
@@ -327,9 +328,9 @@ def delete_task(
         conn.close()
     return
 
-@app.post("/triage", summary="Classify a support message")
+@app.post("/triage", response_model=TriageOutput, summary="Classify a support message")
 def triage(payload: TriageRequest):
-    if not payload.text or not payload.text.strip(): 
+    if not payload.text or not payload.text.strip():
         raise HTTPException(
             status_code=400,
             detail={"error": "text is required and cannot be empty"},
@@ -350,5 +351,16 @@ def triage(payload: TriageRequest):
             reason="Stub response — model not called (LLM_STUB=1).",
         )
 
-    raw_output = call_triage_model(payload.text)
-    return {"raw_model_output": raw_output}
+    try:
+        return call_triage_model(payload.text)
+    except ModelOutputError as e:
+        log_quarantine(
+            input_text=payload.text,
+            error=e.error,
+            raw_output=e.raw_output,
+            prompt_version=e.prompt_version,
+        )
+        raise HTTPException(
+            status_code=422,
+            detail={"error": "Model output could not be validated after one repair attempt."},
+        )

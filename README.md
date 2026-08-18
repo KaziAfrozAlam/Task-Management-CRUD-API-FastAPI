@@ -426,6 +426,11 @@ Full card: [`JOB-CARD.md`](./JOB-CARD.md)
   duration, and attempt number.
 - **Kill switch:** `LLM_ENABLED=false` returns a deterministic fallback instead of 
   calling the model.
+- **Note on retries vs. repair:** these are two independent mechanisms. A schema 
+  validation failure triggers exactly one repair request (per Stage 3). Each 
+  individual provider request — whether the original or the repair — may 
+  independently retry up to 2 times on timeout/429/5xx per the retry policy above. 
+  Worst case is 6 provider calls for one `/triage` request; typical case is 1.
 
 ## Eval results
 

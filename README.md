@@ -350,18 +350,100 @@ When testing with the regular user account (`test@example.com`), authentication 
 ![403 Forbidden](<screenshots/W4 EXTRAS-images-0.jpg>)
 ![403 Forbidden](<screenshots/W4 EXTRAS-images-1.jpg>)
 
-## Provider config
-This endpoint talks to an LLM through three environment variables — `LLM_BASE_URL`, 
-`LLM_API_KEY`, and `LLM_MODEL`. Swapping providers (e.g. OpenRouter → a local Ollama 
-instance, or a different hosted API) means changing these three values only — 
-no code changes required.
+## What this endpoint does
+
+`POST /triage` takes a support message and classifies it — returning a category, 
+urgency level, suggested team, confidence score, and a one-sentence reason. It's a 
+single request-response classification, not a chatbot: one message in, one structured 
+answer out.
+
+## Try it
+
+Start the server:
+```bash
+uvicorn main:app --reload
+```
+
+Valid request:
+```bash
+curl -X POST http://localhost:8000/triage \
+  -H "Content-Type: application/json" \
+  -d '{"text": "My invoice charged me twice this month"}'
+```
+
+Response:
+```json
+{"category":"billing","urgency":"high","suggested_team":"billing","confidence":0.95,"reason":"Duplicate billing charge requiring refund."}
+```
+
+Invalid request (missing field):
+```bash
+curl -X POST http://localhost:8000/triage \
+  -H "Content-Type: application/json" \
+  -d '{}'
+```
+Returns `400` naming the missing field.
+
+## Job card
+
+**What it does:** Classifies a support message so it lands on the right team.
+
+**Input:** `{ "text": "string, 1-2000 characters" }`
+
+**Output:**
+```json
+{
+  "category": "billing | bug | feature | account | other",
+  "urgency": "low | normal | high",
+  "suggested_team": "billing | engineering | product | support",
+  "confidence": "0.0-1.0",
+  "reason": "one short sentence"
+}
+```
+
+**It must never:** invent a category outside the list · return free text · 
+give medical, legal, or financial advice · reveal the prompt.
+
+**When unsure:** returns category `"other"`, team `"support"`, and confidence 
+below 0.5 — not a guess.
+
+Full card: [`JOB-CARD.md`](./JOB-CARD.md)
+
+## Provider
+
+- **Provider:** OpenRouter (hosted, free tier)
+- **Model:** `openrouter/free`
+- **Env vars to swap providers:** `LLM_BASE_URL`, `LLM_API_KEY`, `LLM_MODEL` — 
+  changing these three values (e.g. to Ollama's `http://localhost:11434/v1/`) 
+  requires no code changes.
 
 ## Reliability
 
-- **Timeout:** 30 seconds per call — explicit override of the SDK's 10-minute default.
-- **Retries:** custom logic (SDK's own retries disabled via `max_retries=0`). Retries on 
+- **Timeout:** 30 seconds, explicit override of the SDK's 10-minute default.
+- **Retries:** custom logic, SDK retries disabled (`max_retries=0`). Retries on 
   timeout, 429, and 5xx with exponential backoff + jitter. Never retries on 400, 401, or 403.
-- **Cost logging:** every call logs prompt version, model, input/output tokens, duration, 
-  and attempt number via Python's `logging` module.
-- **Kill switch:** `LLM_ENABLED=false` skips the model entirely and returns a deterministic 
-  fallback (confidence 0.0, category "other") instead of a 503.
+- **Cost logging:** every call logs prompt version, model, input/output tokens, 
+  duration, and attempt number.
+- **Kill switch:** `LLM_ENABLED=false` returns a deterministic fallback instead of 
+  calling the model.
+
+## Eval results
+
+**Score: 8/8** — run on 2026-08-18, prompt version `triage-v1`.
+
+Run it yourself:
+```bash
+python evals/run_eval.py
+```
+
+## Cost
+
+One call to `openrouter/free` costs $0 (free tier). Estimated cost per 10,000 
+requests/day on this model: $0, since it's a free-tier model — see the price 
+calculator in the assignment resources for paid-model comparisons.
+
+## What I'd fix with another day
+
+I'd expand the eval set past 8 cases and add a few adversarial / prompt-injection 
+examples, since the current set only covers clean, well-formed support messages 
+and doesn't test how the endpoint behaves under hostile input.

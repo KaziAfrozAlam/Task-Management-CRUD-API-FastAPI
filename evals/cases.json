@@ -1,0 +1,34 @@
+[
+  {
+    "input": "I was charged twice for my subscription this month, please refund the extra charge.",
+    "expected_category": "billing"
+  },
+  {
+    "input": "The app crashes every time I try to export a report to PDF.",
+    "expected_category": "bug"
+  },
+  {
+    "input": "It would be great if you could add dark mode to the dashboard.",
+    "expected_category": "feature"
+  },
+  {
+    "input": "I can't log into my account, it says my password is wrong even though I reset it twice.",
+    "expected_category": "account"
+  },
+  {
+    "input": "Just wanted to say I really like the new dashboard, nice work!",
+    "expected_category": "other"
+  },
+  {
+    "input": "asdkjhaskjdh random gibberish",
+    "expected_category": "other"
+  },
+  {
+    "input": "Not sure if this is a bug or if I'm just missing a setting, but my export button seems greyed out.",
+    "expected_category": "bug"
+  },
+  {
+    "input": "Can you delete my account and all my data permanently?",
+    "expected_category": "account"
+  }
+]

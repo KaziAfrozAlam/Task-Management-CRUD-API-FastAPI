@@ -355,3 +355,13 @@ This endpoint talks to an LLM through three environment variables — `LLM_BASE_
 `LLM_API_KEY`, and `LLM_MODEL`. Swapping providers (e.g. OpenRouter → a local Ollama 
 instance, or a different hosted API) means changing these three values only — 
 no code changes required.
+
+## Reliability
+
+- **Timeout:** 30 seconds per call — explicit override of the SDK's 10-minute default.
+- **Retries:** custom logic (SDK's own retries disabled via `max_retries=0`). Retries on 
+  timeout, 429, and 5xx with exponential backoff + jitter. Never retries on 400, 401, or 403.
+- **Cost logging:** every call logs prompt version, model, input/output tokens, duration, 
+  and attempt number via Python's `logging` module.
+- **Kill switch:** `LLM_ENABLED=false` skips the model entirely and returns a deterministic 
+  fallback (confidence 0.0, category "other") instead of a 503.

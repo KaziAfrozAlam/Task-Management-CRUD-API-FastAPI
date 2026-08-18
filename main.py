@@ -1,5 +1,6 @@
 import os
-
+import logging
+logging.basicConfig(level=logging.INFO)
 import psycopg
 from psycopg.rows import dict_row
 from dotenv import load_dotenv
@@ -9,7 +10,8 @@ from llm.schema import TriageOutput, Category, Urgency, Team
 from typing import Optional
 from pydantic import BaseModel
 from supabase_client import supabase
-from llm.client import call_triage_model, ModelOutputError
+from llm.client import call_triage_model, ModelOutputError, ModelDisabledError
+from openai import APITimeoutError, APIStatusError
 from llm.quarantine import log_quarantine
 load_dotenv()
 
@@ -353,6 +355,24 @@ def triage(payload: TriageRequest):
 
     try:
         return call_triage_model(payload.text)
+    except ModelDisabledError:
+        return TriageOutput(
+            category=Category.other,
+            urgency=Urgency.low,
+            suggested_team=Team.support,
+            confidence=0.0,
+            reason="LLM disabled via kill switch (LLM_ENABLED=false).",
+        )
+    except APITimeoutError:
+        raise HTTPException(
+            status_code=504,
+            detail={"error": "Model call timed out."},
+        )
+    except APIStatusError as e:
+        raise HTTPException(
+            status_code=502,
+            detail={"error": f"Model provider returned an error: {e.status_code}"},
+        )
     except ModelOutputError as e:
         log_quarantine(
             input_text=payload.text,
